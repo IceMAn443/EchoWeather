@@ -241,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   Text(
                                     currentCityEntity.name ?? '',
                                     style: const TextStyle(
-                                      fontSize: 30,
+                                      fontSize: 31,
                                       color: Colors.white,
                                     ),
                                   ),
