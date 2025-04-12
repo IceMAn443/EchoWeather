@@ -1,7 +1,9 @@
 import 'package:echo_weather/core/widgets/app_background.dart';
-import 'package:echo_weather/features/feature_bookmark/presentation/screens/bookmark_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
+import 'package:echo_weather/features/feature_weather/presentation/screens/daily_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/home_screen.dart';
+import 'package:echo_weather/features/feature_weather/presentation/screens/hourly_screen.dart';
+import 'package:echo_weather/features/feature_weather/presentation/screens/map_screen.dart';
 import 'package:echo_weather/locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,13 +18,23 @@ class MainWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     final List<Widget> pageViewWidget = [
       BlocProvider<HomeBloc>(
-          create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
-          child: const HomeScreen()
+        create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
+        child: const HomeScreen(),
       ),
-      BookMarkScreen(pageController: _myPage)
+      BlocProvider<HomeBloc>(
+        create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
+        child: const HourlyScreen(),
+      ),
+      BlocProvider<HomeBloc>(
+        create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
+        child: const DailyScreen(),
+      ),
+      BlocProvider<HomeBloc>(
+        create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
+        child: const MapScreen(),
+      ),
     ];
 
     var height = MediaQuery.of(context).size.height;
@@ -32,17 +44,19 @@ class MainWrapper extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: BottomAppBar(),
+      bottomNavigationBar: BottomNav(controller: _myPage),
       body: Container(
         height: height,
         decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AppBackground.getBackGroundImage(formattedDate),
-              fit: BoxFit.cover,)),
+          image: DecorationImage(
+            image: AppBackground.getBackGroundImage(formattedDate),
+            fit: BoxFit.cover,
+          ),
+        ),
         child: PageView(
           controller: _myPage,
           children: pageViewWidget,
-          // physics: const NeverScrollableScrollPhysics(),
+          // physics: const NeverScrollableScrollPhysics(), // برای جلوگیری از اسکرول دستی (اختیاری)
         ),
       ),
     );

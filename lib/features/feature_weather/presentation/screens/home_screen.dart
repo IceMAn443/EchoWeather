@@ -6,8 +6,10 @@ import 'package:echo_weather/core/utils/date_converter.dart';
 import 'package:echo_weather/core/widgets/app_background.dart';
 import 'package:echo_weather/core/widgets/dot_loading.dart';
 import 'package:echo_weather/features/feature_bookmark/domain/entities/city_entity.dart';
+import 'package:echo_weather/features/feature_bookmark/domain/usecases/save_city_usecase.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/bookmark_bloc.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/get_all_city_status.dart';
+import 'package:echo_weather/features/feature_bookmark/presentation/bloc/save_city_status.dart';
 import 'package:echo_weather/features/feature_weather/data/models/suggest_city_model.dart';
 import 'package:echo_weather/features/feature_weather/domain/entities/current_city_entities.dart';
 import 'package:echo_weather/features/feature_weather/domain/usecases/get_suggestion_city_usecase.dart';
@@ -93,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(height: height * 0.01),
+          SizedBox(height: height * 0.02),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: width * 0.02),
             child: Column(
@@ -118,23 +120,58 @@ class _HomeScreenState extends State<HomeScreen>
                     if (state.cwStatus is CwCompleted) {
                       final CwCompleted cwComplete = state.cwStatus as CwCompleted;
                       final CurrentCityEntity currentCityEntity = cwComplete.currentCityEntity;
-                      return GestureDetector(
-                        onTap: () {
-                          showCityDropdown(context, currentCityEntity.name ?? '');
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              currentCityEntity.name ?? '',
-                              style: const TextStyle(
-                                fontSize: 27, // کوچیک‌تر کردن نام شهر
-                                color: Colors.white,
-                              ),
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              showCityDropdown(context, currentCityEntity.name ?? '');
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  currentCityEntity.name ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 27, // کوچیک‌تر کردن نام شهر
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Icon(Icons.keyboard_arrow_down,color: Colors.white,),
+                              ],
                             ),
-                            Icon(Icons.keyboard_arrow_down,color: Colors.white,),
-                          ],
-                        ),
+                          ),
+                          SizedBox(width: 10,),
+                          BlocBuilder<BookmarkBloc, BookmarkState>(
+                            builder: (context, bookmarkState) {
+                              bool isBookmarked = false;
+                              if (bookmarkState.getAllCityStatus is GetAllCityCompleted) {
+                                final cities = (bookmarkState.getAllCityStatus as GetAllCityCompleted).cities;
+                                isBookmarked = cities.any((city) => city.name == currentCityEntity.name);
+                              }
+                              return Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      isBookmarked ? Icons.push_pin : Icons.push_pin_outlined,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                    onPressed: () {
+                                      if (isBookmarked) {
+                                        BlocProvider.of<BookmarkBloc>(context).add(DeleteCityEvent(currentCityEntity.name!));
+                                      } else {
+                                        BlocProvider.of<BookmarkBloc>(context).add(SaveCwEvent(currentCityEntity.name!));
+                                      }
+                                      // به‌روزرسانی لیست بوکمارک‌ها
+                                      BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                       );
                     }
                     return const Text(
@@ -424,30 +461,33 @@ class _HomeScreenState extends State<HomeScreen>
             child: Material(
               color: Color(0xFF34495E),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding:  EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // بستن منو
-                          },
-                          icon: Icon(Icons.close, color: Colors.white),
-                        ),
-                        Text(
-                          'WatchList', // تغییر نام به WatchList برای هماهنگی
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
+                    Padding(
+                      padding:  EdgeInsets.only(top: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); // بستن منو
+                            },
+                            icon: Icon(Icons.close, color: Colors.white,size: 30,),
                           ),
-                        ),
-                        SizedBox(width: 48), // برای بالانس کردن فضا
-                      ],
+                          Text(
+                            'Locations', // تغییر نام به WatchList برای هماهنگی
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(width: 48), // برای بالانس کردن فضا
+                        ],
+                      ),
                     ),
-                    SizedBox(height: 20),
+                    SizedBox(height: 10),
                     TypeAheadField<Data>(
                       controller: textEditingController,
                       focusNode: focusNode,
@@ -509,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen>
                           },
                           style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
-                            hintText: "Enter a City...",
+                            hintText: "Find Location",
                             hintStyle: TextStyle(color: Colors.white70),
                             enabledBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: Colors.white38),

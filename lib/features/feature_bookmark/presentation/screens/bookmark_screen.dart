@@ -45,8 +45,8 @@ class BookMarkScreen extends StatelessWidget {
           return SafeArea(
             child: Column(
               children: [
-                const Text(
-                  'WatchList',
+                 Text(
+                  'Locations',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 25,
