@@ -1,8 +1,13 @@
+import 'dart:ui';
+
 import 'package:dio/dio.dart';
 import 'package:echo_weather/core/params/forcast_params.dart';
 import 'package:echo_weather/core/utils/date_converter.dart';
 import 'package:echo_weather/core/widgets/app_background.dart';
 import 'package:echo_weather/core/widgets/dot_loading.dart';
+import 'package:echo_weather/features/feature_bookmark/domain/entities/city_entity.dart';
+import 'package:echo_weather/features/feature_bookmark/presentation/bloc/bookmark_bloc.dart';
+import 'package:echo_weather/features/feature_bookmark/presentation/bloc/get_all_city_status.dart';
 import 'package:echo_weather/features/feature_weather/data/models/suggest_city_model.dart';
 import 'package:echo_weather/features/feature_weather/domain/entities/current_city_entities.dart';
 import 'package:echo_weather/features/feature_weather/domain/usecases/get_suggestion_city_usecase.dart';
@@ -13,6 +18,7 @@ import 'package:echo_weather/features/feature_weather/presentation/widgets/forec
 import 'package:echo_weather/locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -87,116 +93,64 @@ class _HomeScreenState extends State<HomeScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // SizedBox(height: height * 0.01),
-          // Padding(
-          //   padding: EdgeInsets.symmetric(horizontal: width * 0.02),
-          //   child: Row(
-          //     children: [
-          //       Expanded(
-          //         child: Padding(
-          //           padding: const EdgeInsets.all(16.0),
-          //           child: TypeAheadField<Data>(
-          //             controller: textEditingController,
-          //             focusNode: focusNode,
-          //             suggestionsCallback: (String pattern) async {
-          //               return await getSuggestionCityUseCase(pattern);
-          //             },
-          //             itemBuilder: (context, Data model) {
-          //               return ListTile(
-          //                 leading: const Icon(Icons.location_on),
-          //                 title: Text(model.name ?? ''),
-          //                 subtitle: Text('${model.region ?? ''}, ${model.country ?? ''}'),
-          //               );
-          //             },
-          //             onSelected: (Data model) async {
-          //               FocusScope.of(context).unfocus();
-          //               textEditingController.text = model.name ?? '';
-          //               textEditingController.selection = TextSelection(
-          //                 baseOffset: 0,
-          //                 extentOffset: textEditingController.text.length,
-          //               );
-          //
-          //               final cityName = model.name;
-          //               final latLon = await getCoordinatesFromCityName(cityName!);
-          //               BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(cityName));
-          //               BlocProvider.of<HomeBloc>(context).add(
-          //                 LoadFwEvent(ForecastParams(latLon.latitude, latLon.longitude)),
-          //               );
-          //             },
-          //             loadingBuilder: (context) => const SizedBox.shrink(),
-          //             builder: (context, controller, focusNode) {
-          //               return TextField(
-          //                 controller: textEditingController,
-          //                 focusNode: focusNode,
-          //                 onTap: () {
-          //                   Future.delayed(const Duration(milliseconds: 50), () {
-          //                     textEditingController.selection = TextSelection(
-          //                       baseOffset: 0,
-          //                       extentOffset: textEditingController.text.length,
-          //                     );
-          //                   });
-          //                 },
-          //                 onChanged: (value) {
-          //                   if (controller.text != value) {
-          //                     controller.text = value;
-          //                     controller.selection = TextSelection.fromPosition(
-          //                       TextPosition(offset: controller.text.length),
-          //                     );
-          //                   }
-          //                 },
-          //                 onSubmitted: (value) {
-          //                   BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(value));
-          //                 },
-          //                 style: const TextStyle(color: Colors.white),
-          //                 decoration: const InputDecoration(
-          //                   hintText: "Enter a City...",
-          //                   hintStyle: TextStyle(color: Colors.white70),
-          //                   enabledBorder: OutlineInputBorder(
-          //                     borderSide: BorderSide(color: Colors.white38),
-          //                   ),
-          //                   focusedBorder: OutlineInputBorder(
-          //                     borderSide: BorderSide(color: Colors.white),
-          //                   ),
-          //                 ),
-          //               );
-          //             },
-          //           ),
-          //         ),
-          //       ),
-          //       const SizedBox(width: 10),
-          //       BlocBuilder<HomeBloc, HomeState>(
-          //         buildWhen: (previous, current) {
-          //           return previous.cwStatus != current.cwStatus;
-          //         },
-          //         builder: (context, state) {
-          //           if (state.cwStatus is CwLoading) {
-          //             return const CircularProgressIndicator();
-          //           }
-          //           if (state.cwStatus is CwError) {
-          //             return IconButton(
-          //               onPressed: () {},
-          //               icon: const Icon(
-          //                 Icons.error,
-          //                 color: Colors.white,
-          //                 size: 35,
-          //               ),
-          //             );
-          //           }
-          //           if (state.cwStatus is CwCompleted) {
-          //             final CwCompleted cwComplete = state.cwStatus as CwCompleted;
-          //             context
-          //                 .read<BookmarkBloc>()
-          //                 .add(GetCityByNameEvent(cwComplete.currentCityEntity.name!));
-          //             return BookMarkIcon(
-          //               name: cwComplete.currentCityEntity.name!,
-          //             );
-          //           }
-          //           return Container();
-          //         },
-          //       ),
-          //     ],
-          //   ),
-          // ),
+          SizedBox(height: height * 0.01),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: width * 0.02),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wb_sunny, color: Colors.white, size: 15),
+                    const SizedBox(width: 5),
+                    Text(
+                      'ECHO_WEATHER',
+                      style: TextStyle(fontSize: 12, color: Colors.white),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                BlocBuilder<HomeBloc, HomeState>(
+                  buildWhen: (previous, current) {
+                    return previous.cwStatus != current.cwStatus;
+                  },
+                  builder: (context, state) {
+                    if (state.cwStatus is CwCompleted) {
+                      final CwCompleted cwComplete = state.cwStatus as CwCompleted;
+                      final CurrentCityEntity currentCityEntity = cwComplete.currentCityEntity;
+                      return GestureDetector(
+                        onTap: () {
+                          showCityDropdown(context, currentCityEntity.name ?? '');
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              currentCityEntity.name ?? '',
+                              style: const TextStyle(
+                                fontSize: 27, // کوچیک‌تر کردن نام شهر
+                                color: Colors.white,
+                              ),
+                            ),
+                            Icon(Icons.keyboard_arrow_down,color: Colors.white,),
+                          ],
+                        ),
+                      );
+                    }
+                    return const Text(
+                      "Select a city",
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: Colors.white,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                Divider(color: Colors.white24, thickness: 2),
+              ],
+            ),
+          ),
           BlocBuilder<HomeBloc, HomeState>(
             buildWhen: (previous, current) =>
             previous.cwStatus != current.cwStatus ||
@@ -238,14 +192,6 @@ class _HomeScreenState extends State<HomeScreen>
                               return Column(
                                 children: [
                                   const SizedBox(height: 50),
-                                  Text(
-                                    currentCityEntity.name ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 31,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
                                   Text(
                                     currentCityEntity.weather?[0].description ?? '',
                                     style: const TextStyle(
@@ -459,6 +405,242 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  void showCityDropdown(BuildContext context, String cityName) {
+    // بارگذاری شهرهای بوکمارک‌شده
+    BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true, // با کلیک بیرون منو بسته می‌شه
+      barrierLabel: '',
+      barrierColor: Colors.black.withOpacity(0.5), // پس‌زمینه نیمه‌شفاف
+      transitionDuration: Duration(milliseconds: 300), // مدت زمان انیمیشن
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.topCenter, // منو از بالا نشون داده می‌شه
+          child: Container(
+            height: MediaQuery.of(context).size.height, // کل ارتفاع صفحه
+            width: MediaQuery.of(context).size.width,
+            child: Material(
+              color: Color(0xFF34495E),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(); // بستن منو
+                          },
+                          icon: Icon(Icons.close, color: Colors.white),
+                        ),
+                        Text(
+                          'WatchList', // تغییر نام به WatchList برای هماهنگی
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 48), // برای بالانس کردن فضا
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    TypeAheadField<Data>(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      suggestionsCallback: (String pattern) async {
+                        return await getSuggestionCityUseCase(pattern);
+                      },
+                      itemBuilder: (context, Data model) {
+                        return ListTile(
+                          leading: const Icon(Icons.location_on),
+                          title: Text(model.name ?? ''),
+                          subtitle: Text('${model.region ?? ''}, ${model.country ?? ''}'),
+                        );
+                      },
+                      onSelected: (Data model) async {
+                        // غیرفعال کردن کیبورد
+                        FocusScope.of(context).unfocus();
+
+                        // تنظیم اسم شهر توی باکس سرچ
+                        textEditingController.text = model.name ?? '';
+                        textEditingController.selection = TextSelection(
+                          baseOffset: 0,
+                          extentOffset: textEditingController.text.length,
+                        );
+
+                        // گرفتن مختصات شهر و ارسال درخواست برای بارگذاری اطلاعات
+                        final cityName = model.name;
+                        final latLon = await getCoordinatesFromCityName(cityName!);
+                        BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(cityName));
+                        BlocProvider.of<HomeBloc>(context).add(
+                          LoadFwEvent(ForecastParams(latLon.latitude, latLon.longitude)),
+                        );
+
+                        // بستن منوی کشویی و برگشتن به هوم اسکرین
+                        Navigator.of(context).pop();
+                      },
+                      loadingBuilder: (context) => const SizedBox.shrink(),
+                      builder: (context, controller, focusNode) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          onTap: () {
+                            Future.delayed(const Duration(milliseconds: 50), () {
+                              textEditingController.selection = TextSelection(
+                                baseOffset: 0,
+                                extentOffset: textEditingController.text.length,
+                              );
+                            });
+                          },
+                          onChanged: (value) {
+                            if (controller.text != value) {
+                              controller.text = value;
+                              controller.selection = TextSelection.fromPosition(
+                                TextPosition(offset: controller.text.length),
+                              );
+                            }
+                          },
+                          onSubmitted: (value) {
+                            BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(value));
+                          },
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            hintText: "Enter a City...",
+                            hintStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white38),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: 20),
+                    Expanded(
+                      child: BlocBuilder<BookmarkBloc, BookmarkState>(
+                        buildWhen: (previous, current) {
+                          return current.getAllCityStatus != previous.getAllCityStatus;
+                        },
+                        builder: (context, state) {
+                          // وضعیت لودینگ
+                          if (state.getAllCityStatus is GetAllCityLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          // وضعیت تکمیل‌شده
+                          if (state.getAllCityStatus is GetAllCityCompleted) {
+                            final GetAllCityCompleted getAllCityCompleted =
+                            state.getAllCityStatus as GetAllCityCompleted;
+                            final List<City> cities = getAllCityCompleted.cities;
+
+                            return cities.isEmpty
+                                ? const Center(
+                              child: Text(
+                                'there is no bookmark city',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            )
+                                : ListView.builder(
+                              itemCount: cities.length,
+                              itemBuilder: (context, index) {
+                                final city = cities[index];
+                                return GestureDetector(
+                                  onTap: () {
+                                    BlocProvider.of<HomeBloc>(context)
+                                        .add(LoadCwEvent(city.name));
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: ClipRect(
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                        child: Container(
+                                          width: double.infinity,
+                                          height: 60.0,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                            const BorderRadius.all(Radius.circular(20)),
+                                            color: Colors.grey.withOpacity(0.1),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 20.0),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  city.name,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  onPressed: () {
+                                                    BlocProvider.of<BookmarkBloc>(context)
+                                                        .add(DeleteCityEvent(city.name));
+                                                    BlocProvider.of<BookmarkBloc>(context)
+                                                        .add(GetAllCityEvent());
+                                                  },
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                    color: Colors.redAccent,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          // وضعیت خطا
+                          if (state.getAllCityStatus is GetAllCityError) {
+                            final GetAllCityError getAllCityError =
+                            state.getAllCityStatus as GetAllCityError;
+                            return Center(
+                              child: Text(
+                                getAllCityError.message!,
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(0, -1), // شروع از بالای صفحه
+            end: Offset(0, 0),   // پایان در موقعیت اصلی
+          ).animate(anim1),
+          child: child,
+        );
+      },
+    );
+  }
+
   Widget _buildInfoItem(String title, String value, double height) {
     return Column(
       children: [
@@ -485,6 +667,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   bool get wantKeepAlive => true;
 }
+
 final dio = Dio();
 Future<LatLon> getCoordinatesFromCityName(String cityName) async {
   final response = await dio.get('https://geocoding-api.open-meteo.com/v1/search?name=$cityName');

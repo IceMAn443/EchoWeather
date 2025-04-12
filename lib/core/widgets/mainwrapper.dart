@@ -22,7 +22,7 @@ class MainWrapper extends StatelessWidget {
           create: (context) => locator<HomeBloc>()..add(LoadCwEvent(cityName)),
           child: const HomeScreen()
       ),
-      BookmarkScreen(pageController: _myPage)
+      BookMarkScreen(pageController: _myPage)
     ];
 
     var height = MediaQuery.of(context).size.height;
@@ -32,7 +32,7 @@ class MainWrapper extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      bottomNavigationBar: BottomNav(controller: _myPage),
+      bottomNavigationBar: BottomAppBar(),
       body: Container(
         height: height,
         decoration: BoxDecoration(

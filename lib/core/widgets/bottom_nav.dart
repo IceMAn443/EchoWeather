@@ -6,6 +6,7 @@ class BottomNav extends StatelessWidget {
   final PageController controller;
   BottomNav({Key? key, required this.controller}) : super(key: key);
 
+
   @override
   Widget build(BuildContext context) {
 
@@ -13,11 +14,11 @@ class BottomNav extends StatelessWidget {
     // TextTheme textTheme = Theme.of(context).textTheme;
     // var state = context.watch<BottomIconCubit>().state;
     return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
+      shape:  CircularNotchedRectangle(),
       notchMargin: 5,
       color: primaryColor,
       child: SizedBox(
-        height: 63,
+        height: 30,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
