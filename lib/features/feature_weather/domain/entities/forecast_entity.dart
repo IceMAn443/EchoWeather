@@ -14,6 +14,8 @@ class ForecastDayEntity extends Equatable {
 
   @override
   List<Object?> get props => [date, maxTempC, conditionIcon];
+
+  get chanceOfRain => null;
 }
 
 class ForecastHourEntity extends Equatable {

@@ -41,7 +41,7 @@ class _BottomNavState extends State<BottomNav> {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
+              blurRadius: 8,
               spreadRadius: 2,
             ),
           ],
