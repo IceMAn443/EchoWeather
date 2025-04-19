@@ -27,7 +27,7 @@ class ApiProvider {
     final now = DateTime.now();
     final df = DateFormat('yyyy-MM-dd');
     final startDate = df.format(now);                   // امروز
-    final endDate = df.format(now.add(const Duration(days: 7))); // هفت روز بعد
+    final endDate = df.format(now.add(const Duration(days: 14))); // هفت روز بعد
 
     final response = await _dio.get(
       'https://api.open-meteo.com/v1/forecast',

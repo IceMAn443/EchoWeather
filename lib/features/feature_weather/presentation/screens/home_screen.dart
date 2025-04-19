@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
                   return Stack(
                     children: [
-                      // پس‌زمینه تصویری
+                      ///background image
                       Container(
                         decoration: const BoxDecoration(
                           image: DecorationImage(
@@ -103,10 +103,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           ),
                         ),
                       ),
-                      // محتوای اصلی
+                      ///Body
                       Column(
                         children: [
-                          // بخش وسط (دما و وضعیت آب‌وهوا) با هاله گرد
+                          ///center circle
                           FadeTransition(
                             opacity: _fadeAnimation,
                             child: SlideTransition(
@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               ),
                             ),
                           ),
-                          // جداکننده
+                          ///Divider
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 40),
                             height: 2,
@@ -182,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               ],
                             ),
                           ),
-                          // کارت‌های پایین
+                          ///Cards
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -225,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               },
             ),
           ),
-          SizedBox(height: height * 0.02), // کاهش فضای خالی بالای باتم‌نو
+          SizedBox(height: height * 0.001), // کاهش فضای خالی بالای باتم‌نو
         ],
       ),
     );

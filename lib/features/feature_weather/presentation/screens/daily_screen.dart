@@ -58,29 +58,6 @@ class _DailyScreenState extends State<DailyScreen> with AutomaticKeepAliveClient
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white54,
-                                  foregroundColor: Colors.black,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                child: const Text("BY DAY"),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: () {},
-                                child: const Text(
-                                  "45 DAYS",
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -173,7 +150,7 @@ class _DailyScreenState extends State<DailyScreen> with AutomaticKeepAliveClient
                                     SizedBox(height: height * 0.10),
                                     Divider(color:Colors.white24 ,),
                                     SizedBox(height: 5,),
-                                    // Precipitation Chance
+                                    ///Humidity
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
@@ -198,10 +175,13 @@ class _DailyScreenState extends State<DailyScreen> with AutomaticKeepAliveClient
 
                               // Add Divider (except for the last item)
                               if (index < forecast.days.length - 1)
-                                Container(
-                                  height: double.infinity, // Divider stretches to the bottom
-                                  width: 1,
-                                  color: Colors.white24, // Divider color
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 45),
+                                  child: Container(
+                                    height: double.infinity, // Divider stretches to the bottom
+                                    width: 1,
+                                    color: Colors.white24, // Divider color
+                                  ),
                                 ),
                             ],
                           );
