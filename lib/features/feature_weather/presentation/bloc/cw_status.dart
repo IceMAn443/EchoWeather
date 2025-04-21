@@ -1,21 +1,38 @@
-
-import 'package:echo_weather/features/feature_weather/domain/entities/current_city_entities.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 
 @immutable
-abstract class CwStatus{}
+abstract class CwStatus extends Equatable{}
 
-class CwLoading extends CwStatus{}
+/// loading state
+class CwLoading extends CwStatus{
 
-
-class CwCompleted extends CwStatus{
-  final CurrentCityEntity currentCityEntity;
-  CwCompleted(this.currentCityEntity);
+  @override
+  // TODO: implement props
+  List<Object?> get props => [];
 }
 
+/// loaded state
+class CwCompleted extends CwStatus{
+  final MeteoCurrentWeatherEntity meteoCurrentWeatherEntity;
+  CwCompleted(this.meteoCurrentWeatherEntity);
 
+  @override
+  // TODO: implement props
+  List<Object?> get props => [
+    meteoCurrentWeatherEntity,
+  ];
+}
+
+/// error state
 class CwError extends CwStatus{
-  final String message;
-
+  final String? message;
   CwError(this.message);
+
+  @override
+  // TODO: implement props
+  List<Object?> get props => [
+    message
+  ];
 }

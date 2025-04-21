@@ -5,11 +5,12 @@ import 'package:echo_weather/core/params/forcast_params.dart';
 import 'package:echo_weather/features/feature_bookmark/domain/entities/city_entity.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/bookmark_bloc.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/get_all_city_status.dart';
-import 'package:echo_weather/features/feature_weather/data/models/suggest_city_model.dart';
-import 'package:echo_weather/features/feature_weather/domain/entities/current_city_entities.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/neshan_city_entity.dart';
 import 'package:echo_weather/features/feature_weather/domain/usecases/get_suggestion_city_usecase.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/cw_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/home_event.dart';
 import 'package:echo_weather/locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,8 +26,11 @@ class CustomAppBar extends StatefulWidget {
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
+
   late TextEditingController textEditingController;
   late FocusNode focusNode;
+  bool _isForecastLoaded = false;
+  bool _isAirQualityLoaded = false;
   GetSuggestionCityUseCase getSuggestionCityUseCase = GetSuggestionCityUseCase(locator());
 
   @override
@@ -70,7 +74,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
       pageBuilder: (context, anim1, anim2) {
         return Align(
           alignment: Alignment.topCenter,
-          child: Container(
+          child: SizedBox(
             height: MediaQuery.of(context).size.height,
             width: MediaQuery.of(context).size.width,
             child: Material(
@@ -103,34 +107,43 @@ class _CustomAppBarState extends State<CustomAppBar> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    TypeAheadField<Data>(
+                    TypeAheadField<NeshanCityItem>(
                       controller: textEditingController,
                       focusNode: focusNode,
                       suggestionsCallback: (String pattern) async {
                         return await getSuggestionCityUseCase(pattern);
                       },
-                      itemBuilder: (context, Data model) {
+                      itemBuilder: (context, NeshanCityItem model) {
                         return ListTile(
                           leading: const Icon(Icons.location_on),
-                          title: Text(model.name ?? ''),
-                          subtitle: Text('${model.region ?? ''}, ${model.country ?? ''}'),
+                          title: Text(model.title ?? ''),
+                          subtitle: Text('${model.address?.split(', ')[0] ?? ''}, ${model.address?.split(', ').last ?? ''}'),
                         );
                       },
-                      onSelected: (Data model) async {
+                      onSelected: (NeshanCityItem model) async {
                         FocusScope.of(context).unfocus();
 
-                        textEditingController.text = model.name ?? '';
+                        textEditingController.text = model.title ?? '';
                         textEditingController.selection = TextSelection(
                           baseOffset: 0,
                           extentOffset: textEditingController.text.length,
                         );
 
-                        final cityName = model.name;
-                        final latLon = await getCoordinatesFromCityName(cityName!);
-                        BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(cityName));
-                        BlocProvider.of<HomeBloc>(context).add(
-                          LoadFwEvent(ForecastParams(latLon.latitude, latLon.longitude)),
-                        );
+                        final lat = model.location?.y;
+                        final lon = model.location?.x;
+                        print('مختصات شهر انتخاب‌شده (${model.title}): lat=$lat, lon=$lon');
+                        if (lat != null && lon != null) {
+                          final params = ForecastParams(lat, lon);
+                          context.read<HomeBloc>().add(LoadCwEvent(model.title!));
+                          context.read<HomeBloc>().add(LoadFwEvent(params));
+                          context.read<HomeBloc>().add(LoadAirQualityEvent(params));
+                          _isForecastLoaded = false;
+                          _isAirQualityLoaded = false;
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('مختصات شهر پیدا نشد')),
+                          );
+                        }
 
                         Navigator.of(context).pop();
                       },
@@ -156,7 +169,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
                             }
                           },
                           onSubmitted: (value) {
-                            BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(value));
+                            print('Text submitted: $value');
+                            context.read<HomeBloc>().add(LoadCwEvent(value));
+                            _isForecastLoaded = false;
+                            _isAirQualityLoaded = false;
                           },
                           style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
@@ -321,19 +337,19 @@ class _CustomAppBarState extends State<CustomAppBar> {
             builder: (context, state) {
               if (state.cwStatus is CwCompleted) {
                 final CwCompleted cwComplete = state.cwStatus as CwCompleted;
-                final CurrentCityEntity currentCityEntity = cwComplete.currentCityEntity;
+                final MeteoCurrentWeatherEntity meteoCurrentWeatherEntity = cwComplete.meteoCurrentWeatherEntity;
                 return Stack(
                   alignment: Alignment.center,
                   children: [
                     GestureDetector(
                       onTap: () {
-                        showCityDropdown(context, currentCityEntity.name ?? '');
+                        showCityDropdown(context, meteoCurrentWeatherEntity.name ?? '');
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            currentCityEntity.name ?? '',
+                            meteoCurrentWeatherEntity.name ?? '',
                             style: const TextStyle(
                               fontSize: 27,
                               color: Colors.white,
@@ -350,7 +366,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                           bool isBookmarked = false;
                           if (bookmarkState.getAllCityStatus is GetAllCityCompleted) {
                             final cities = (bookmarkState.getAllCityStatus as GetAllCityCompleted).cities;
-                            isBookmarked = cities.any((city) => city.name == currentCityEntity.name);
+                            isBookmarked = cities.any((city) => city.name == meteoCurrentWeatherEntity.name);
                           }
                           return IconButton(
                             icon: Icon(
@@ -361,10 +377,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
                             onPressed: () {
                               if (isBookmarked) {
                                 BlocProvider.of<BookmarkBloc>(context)
-                                    .add(DeleteCityEvent(currentCityEntity.name!));
+                                    .add(DeleteCityEvent(meteoCurrentWeatherEntity.name!));
                               } else {
                                 BlocProvider.of<BookmarkBloc>(context)
-                                    .add(SaveCwEvent(currentCityEntity.name!));
+                                    .add(SaveCwEvent(meteoCurrentWeatherEntity.name!));
                               }
                               BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
                             },
@@ -390,20 +406,4 @@ class _CustomAppBarState extends State<CustomAppBar> {
       ),
     );
   }
-}
-
-final dio = Dio();
-Future<LatLon> getCoordinatesFromCityName(String cityName) async {
-  final response = await dio.get('https://geocoding-api.open-meteo.com/v1/search?name=$cityName');
-  final results = response.data['results'];
-  final lat = results[0]['latitude'];
-  final lon = results[0]['longitude'];
-  return LatLon(lat, lon);
-}
-
-class LatLon {
-  final double latitude;
-  final double longitude;
-
-  LatLon(this.latitude, this.longitude);
 }

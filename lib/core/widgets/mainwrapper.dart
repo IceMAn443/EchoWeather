@@ -1,6 +1,7 @@
 import 'package:echo_weather/core/widgets/app_background.dart';
 import 'package:echo_weather/core/widgets/custom_appbar.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/home_event.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/daily_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/home_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/hourly_screen.dart';

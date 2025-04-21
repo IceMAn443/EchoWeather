@@ -1,12 +1,17 @@
 import 'dart:ui';
 import 'package:echo_weather/core/params/forcast_params.dart';
 import 'package:echo_weather/core/utils/date_converter.dart';
+import 'package:echo_weather/core/widgets/app_background.dart';
 import 'package:echo_weather/core/widgets/dot_loading.dart';
-import 'package:echo_weather/features/feature_weather/domain/entities/current_city_entities.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/cw_status.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/fw_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/home_event.dart';
+import 'package:echo_weather/locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,15 +22,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _isForecastLoaded = false;
+  bool _isAirQualityLoaded = false;
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _glowAnimation;
+  late final HomeBloc _homeBloc;
 
   @override
   void initState() {
     super.initState();
     // تنظیم انیمیشن‌ها
+    _homeBloc = locator<HomeBloc>()..add(LoadCwEvent("Amol"));
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -48,6 +57,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _animationController.forward();
   }
 
+  String _formatTime(String? isoTime) {
+    if (isoTime == null || isoTime.isEmpty) return '--:--';
+    try {
+      final dateTime = DateTime.parse(isoTime);
+      return DateFormat('HH:mm').format(dateTime);
+    } catch (e) {
+      return '--:--';
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -59,174 +78,183 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final height = MediaQuery.of(context).size.height;
     final width = MediaQuery.of(context).size.width;
 
-    return SafeArea(
-      child: Column(
-        children: [
-          SizedBox(height: height * 0.15), // فاصله با اپ‌بار
-          Expanded(
-            child: BlocBuilder<HomeBloc, HomeState>(
-              buildWhen: (previous, current) => previous.cwStatus != current.cwStatus,
-              builder: (context, state) {
-                if (state.cwStatus is CwLoading) {
-                  return const Center(child: DotLoadingWidget());
-                }
-                if (state.cwStatus is CwCompleted) {
-                  final cwComplete = state.cwStatus as CwCompleted;
-                  final CurrentCityEntity currentCityEntity = cwComplete.currentCityEntity;
-
-                  if (!_isForecastLoaded) {
-                    final forecastParams = ForecastParams(
-                      currentCityEntity.coord!.lat!,
-                      currentCityEntity.coord!.lon!,
-                    );
-                    BlocProvider.of<HomeBloc>(context).add(LoadFwEvent(forecastParams));
-                    _isForecastLoaded = true;
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _homeBloc),
+      ],
+      child: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(height: height * 0.15), // فاصله با اپ‌بار
+            Expanded(
+              child: BlocBuilder<HomeBloc, HomeState>(
+                buildWhen: (previous, current) => previous.cwStatus != current.cwStatus,
+                builder: (context, state) {
+                  if (state.cwStatus is CwLoading) {
+                    return const Center(child: DotLoadingWidget());
                   }
+                  if (state.cwStatus is CwCompleted) {
+                    final city = (state.cwStatus as CwCompleted).meteoCurrentWeatherEntity;
+                    if (!_isForecastLoaded) {
+                      final lat = city.coord?.lat;
+                      final lon = city.coord?.lon;
+                      print('مختصات از آب‌وهوای فعلی: lat=$lat, lon=$lon');
+                      if (lat != null && lon != null) {
+                        final params = ForecastParams(lat, lon);
+                        _homeBloc.add(LoadFwEvent(params));
+                        _homeBloc.add(LoadAirQualityEvent(params));
+                        _isForecastLoaded = true;
+                        _isAirQualityLoaded = true;
+                      } else {
+                        print('مختصات آب‌وهوای فعلی نامعتبر است');
+                      }
+                    }
 
-                  final sunrise = DateConverter.changeDtToDateTimeHour(
-                    currentCityEntity.sys!.sunrise,
-                    currentCityEntity.timezone,
-                  );
-                  final sunset = DateConverter.changeDtToDateTimeHour(
-                    currentCityEntity.sys!.sunset,
-                    currentCityEntity.timezone,
-                  );
-
-                  return Stack(
-                    children: [
-                      ///background image
-                      Container(
-                        decoration: const BoxDecoration(
-                          image: DecorationImage(
-                            image: AssetImage("assets/images/picture.jpg"),
-                            fit: BoxFit.cover,
+                    // double minTemp = 0.0;
+                    double maxTemp = 0.0;
+                    if (state.fwStatus is FwCompleted) {
+                      final forecast = (state.fwStatus as FwCompleted).forecastEntity;
+                      if (forecast.days.isNotEmpty) {
+                        // minTemp = forecast.days[0].minTempC;
+                        maxTemp = forecast.days[0].maxTempC;
+                      }
+                    }
+                    final sunrise = _formatTime(city.sys?.sunrise);
+                    final sunset = _formatTime(city.sys?.sunset);
+                    return Stack(
+                      children: [
+                        ///background image
+                        Container(
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage("assets/images/picture.jpg"),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
-                      ),
-                      ///Body
-                      Column(
-                        children: [
-                          ///center circle
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: SlideTransition(
-                              position: _slideAnimation,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
-                                child: AnimatedBuilder(
-                                  animation: _glowAnimation,
-                                  builder: (context, child) {
-                                    return Container(
-                                      width: width * 0.55, // اندازه دایره
-                                      height: width * 0.55,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withOpacity(0.05),
-                                        border: Border.all(color: Colors.white.withOpacity(0.2)),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.white.withOpacity(0.3),
-                                            blurRadius: _glowAnimation.value,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              _getWeatherIcon(currentCityEntity.weather?[0].main ?? ''),
-                                              size: 60,
-                                              color: Colors.white,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              currentCityEntity.weather?[0].description ?? 'Unknown',
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                color: Colors.white70,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              "${currentCityEntity.main?.temp?.round() ?? 0}\u00B0",
-                                              style: TextStyle(
-                                                fontSize: width * 0.13,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                        ///Body
+                        Column(
+                          children: [
+                            ///center circle
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: SlideTransition(
+                                position: _slideAnimation,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
+                                  child: AnimatedBuilder(
+                                    animation: _glowAnimation,
+                                    builder: (context, child) {
+                                      return Container(
+                                        width: width * 0.55, // اندازه دایره
+                                        height: width * 0.55,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withOpacity(0.05),
+                                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.white.withOpacity(0.3),
+                                              blurRadius: _glowAnimation.value,
+                                              spreadRadius: 2,
                                             ),
                                           ],
                                         ),
-                                      ),
-                                    );
-                                  },
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              AppBackground.setIconForMain(
+                                               city.weather?.isNotEmpty == true ? city.weather![0].description ?? '' : ''
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                city.weather?[0].description ?? 'Unknown',
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  color: Colors.white70,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                "${city.main?.temp?.round() ?? 0}\u00B0",
+                                                style: TextStyle(
+                                                  fontSize: width * 0.13,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          ///Divider
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 40),
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ],
+                            ///Divider
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 40),
+                              height: 2,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          ///Cards
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                              child: FadeTransition(
-                                opacity: _fadeAnimation,
-                                child: SlideTransition(
-                                  position: _slideAnimation,
-                                  child: SingleChildScrollView(
-                                    child: Column(
-                                      children: [
-                                        _buildGlassCard("Wind Speed", "${currentCityEntity.wind?.speed ?? 0} m/s", Icons.air),
-                                        const SizedBox(height: 10),
-                                        _buildGlassCard("Sunrise", sunrise, Icons.wb_sunny),
-                                        const SizedBox(height: 10),
-                                        _buildGlassCard("Sunset", sunset, Icons.nights_stay),
-                                        const SizedBox(height: 10),
-                                        _buildGlassCard("Humidity", "${currentCityEntity.main?.humidity ?? 0}%", Icons.opacity),
-                                        const SizedBox(height: 10),
-                                        _buildGlassCard("Pressure", "${currentCityEntity.main?.pressure ?? 0} hPa", Icons.compress),
-                                        const SizedBox(height: 10),
-                                        _buildGlassCard("Feels Like", "${currentCityEntity.main?.feelsLike?.round() ?? 0}\u00B0", Icons.thermostat),
-                                      ],
+                            ///Cards
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                                child: FadeTransition(
+                                  opacity: _fadeAnimation,
+                                  child: SlideTransition(
+                                    position: _slideAnimation,
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        children: [
+                                          _buildGlassCard("Wind Speed", "${city.wind?.speed ?? 0} m/s", Icons.air),
+                                          const SizedBox(height: 10),
+                                          _buildGlassCard("Sunrise", sunrise, Icons.wb_sunny),
+                                          const SizedBox(height: 10),
+                                          _buildGlassCard("Sunset", sunset, Icons.nights_stay),
+                                          const SizedBox(height: 10),
+                                          _buildGlassCard("Humidity", "${city.main?.humidity ?? 0}%", Icons.opacity),
+                                          const SizedBox(height: 10),
+                                          _buildGlassCard("Pressure", "${city.main?.pressure ?? 0} hPa", Icons.compress),
+                                          const SizedBox(height: 10),
+                                          // _buildGlassCard("Feels Like", "${meteoCurrentWeatherEntity.main?.feelsLike?.round() ?? 0}\u00B0", Icons.thermostat),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                }
-                if (state.cwStatus is CwError) {
-                  return const Center(
-                    child: Icon(Icons.error, color: Colors.red, size: 35),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  if (state.cwStatus is CwError) {
+                    return const Center(
+                      child: Icon(Icons.error, color: Colors.red, size: 35),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-          SizedBox(height: height * 0.001), // کاهش فضای خالی بالای باتم‌نو
-        ],
+            SizedBox(height: height * 0.001), // کاهش فضای خالی بالای باتم‌نو
+          ],
+        ),
       ),
     );
   }
@@ -288,21 +316,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // تابع برای انتخاب آیکون آب‌وهوا
-  IconData _getWeatherIcon(String weatherMain) {
-    switch (weatherMain.toLowerCase()) {
-      case 'clear':
-        return Icons.wb_sunny;
-      case 'clouds':
-        return Icons.cloud;
-      case 'rain':
-        return Icons.umbrella;
-      case 'snow':
-        return Icons.ac_unit;
-      default:
-        return Icons.wb_cloudy;
-    }
-  }
+  // // تابع برای انتخاب آیکون آب‌وهوا
+  // IconData _getWeatherIcon(String weatherMain) {
+  //   switch (weatherMain.contains(des)) {
+  //     case 'clear':
+  //       return Icons.wb_sunny;
+  //     case 'clouds':
+  //       return Icons.cloud;
+  //     case 'rain':
+  //       return Icons.umbrella;
+  //     case 'snow':
+  //       return Icons.ac_unit;
+  //     default:
+  //       return Icons.wb_cloudy;
+  //   }
+  // }
 }
 
 // ویجت برای آیکون متحرک

@@ -5,6 +5,7 @@ import 'package:echo_weather/features/feature_bookmark/domain/entities/city_enti
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/bookmark_bloc.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/get_all_city_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/home_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
