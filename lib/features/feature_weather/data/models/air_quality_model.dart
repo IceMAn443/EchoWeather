@@ -1,4 +1,3 @@
-
 import 'package:echo_weather/features/feature_weather/domain/entities/air_quality_entity.dart';
 
 class AirQualityModel extends AirQualityEntity {
@@ -14,15 +13,17 @@ class AirQualityModel extends AirQualityEntity {
   factory AirQualityModel.fromJson(Map<String, dynamic> json) {
     try {
       final current = json['current'];
-      print('Current Data: $current');
-
       if (current == null) {
         throw Exception('داده‌های current وجود ندارد');
       }
 
-      final pm25 = current['pm2_5'] as num? ?? 0.0;
-      final pm10 = current['pm10'] as num? ?? 0.0;
-      final ozone = current['ozone'] as num? ?? 0.0;
+      if (current['pm2_5'] == null || current['pm10'] == null || current['ozone'] == null) {
+        throw Exception('داده‌های PM2.5، PM10 یا Ozone وجود ندارد');
+      }
+
+      final pm25 = current['pm2_5'] as num;
+      final pm10 = current['pm10'] as num;
+      final ozone = current['ozone'] as num;
       final co = current['carbon_monoxide'] as num?;
       final no2 = current['nitrogen_dioxide'] as num?;
       final so2 = current['sulphur_dioxide'] as num?;
@@ -43,16 +44,14 @@ class AirQualityModel extends AirQualityEntity {
     }
   }
 
-  // تابع محاسبه AQI برای یه آلاینده
+  // تابع محاسبه AQI برای یک آلاینده
   static int _calculateAqi(double concentration, List<double> concentrationBreakpoints, List<int> aqiBreakpoints) {
     print('محاسبه AQI برای غلظت: $concentration');
-    // اگه غلظت صفر یا منفی باشه، AQI باید 0 باشه
     if (concentration <= 0) {
       print('غلظت صفر یا منفی است، AQI=0');
       return 0;
     }
 
-    // اگه غلظت توی بازه‌ها قرار نگیره، باید درست مدیریت بشه
     for (int i = 0; i < concentrationBreakpoints.length - 1; i++) {
       if (concentration > concentrationBreakpoints[i] && concentration <= concentrationBreakpoints[i + 1]) {
         print('بازه انتخاب‌شده: ${concentrationBreakpoints[i]} - ${concentrationBreakpoints[i + 1]}');
@@ -66,7 +65,6 @@ class AirQualityModel extends AirQualityEntity {
       }
     }
 
-    // اگه غلظت از آخرین بازه بیشتر باشه، حداکثر AQI رو برگردون
     print('غلظت از آخرین بازه بیشتر است، AQI=${aqiBreakpoints.last}');
     return aqiBreakpoints.last;
   }
@@ -87,7 +85,7 @@ class AirQualityModel extends AirQualityEntity {
 
   // محاسبه AQI برای ازون (تبدیل µg/m³ به ppb)
   int _calculateOzoneAqi() {
-    double ozonePpb = ozone / 2; // تقریباً 1 µg/m³ = 0.5 ppb برای ازون
+    double ozonePpb = ozone / 2; // تقریبی، باید با API هماهنگ شود
     print('ازون به ppb تبدیل شد: $ozonePpb');
     final concentrationBreakpoints = [0.0, 54.0, 70.0, 85.0, 105.0, 200.0];
     final aqiBreakpoints = [0, 50, 100, 150, 200, 300];
@@ -97,27 +95,27 @@ class AirQualityModel extends AirQualityEntity {
   // محاسبه AQI برای CO (تبدیل µg/m³ به ppm)
   int? _calculateCoAqi() {
     if (co == null) return null;
-    double coPpm = co! * 0.000873; // فرمول درست: µg/m³ به ppm برای CO
+    double coPpm = co! * 0.000873; // تقریبی، باید با API هماهنگ شود
     print('CO به ppm تبدیل شد: $coPpm');
     final concentrationBreakpoints = [0.0, 4.4, 9.4, 12.4, 15.4, 30.4, 50.4];
     final aqiBreakpoints = [0, 50, 100, 150, 200, 300, 500];
     return _calculateAqi(coPpm, concentrationBreakpoints, aqiBreakpoints);
   }
 
-  // محاسبه AQI برای NO2 (ppb, برای 1 ساعت)
+  // محاسبه AQI برای NO2 (تبدیل µg/m³ به ppb)
   int? _calculateNo2Aqi() {
     if (no2 == null) return null;
-    double no2Ppb = no2! * 0.532;
+    double no2Ppb = no2! * 0.532; // تقریبی، باید با API هماهنگ شود
     print('NO2 به ppb تبدیل شد: $no2Ppb');
     final concentrationBreakpoints = [0.0, 53.0, 100.0, 360.0, 649.0, 1249.0, 2049.0];
     final aqiBreakpoints = [0, 50, 100, 150, 200, 300, 500];
     return _calculateAqi(no2Ppb, concentrationBreakpoints, aqiBreakpoints);
   }
 
-  // محاسبه AQI برای SO2 (ppb, برای 1 ساعت)
+  // محاسبه AQI برای SO2 (تبدیل µg/m³ به ppb)
   int? _calculateSo2Aqi() {
     if (so2 == null) return null;
-    double so2Ppb = so2! * 0.382;
+    double so2Ppb = so2! * 0.382; // تقریبی، باید با API هماهنگ شود
     print('SO2 به ppb تبدیل شد: $so2Ppb');
     final concentrationBreakpoints = [0.0, 35.0, 75.0, 185.0, 304.0, 604.0, 1004.0];
     final aqiBreakpoints = [0, 50, 100, 150, 200, 300, 500];

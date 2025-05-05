@@ -1,20 +1,23 @@
+import 'dart:async';
 import 'dart:ui';
-
 import 'package:dio/dio.dart';
 import 'package:echo_weather/core/params/forcast_params.dart';
 import 'package:echo_weather/features/feature_bookmark/domain/entities/city_entity.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/bookmark_bloc.dart';
 import 'package:echo_weather/features/feature_bookmark/presentation/bloc/get_all_city_status.dart';
-import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_current_weather_entity.dart';
 import 'package:echo_weather/features/feature_weather/domain/entities/neshan_city_entity.dart';
 import 'package:echo_weather/features/feature_weather/domain/usecases/get_suggestion_city_usecase.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/cw_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_event.dart';
 import 'package:echo_weather/locator.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:geolocator/geolocator.dart';
+import '../../features/feature_weather/data/data_source/remote/api_provider.dart';
 
 class CustomAppBar extends StatefulWidget {
   final Function(BuildContext, String) onCityTap;
@@ -26,20 +29,27 @@ class CustomAppBar extends StatefulWidget {
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
-
   late TextEditingController textEditingController;
   late FocusNode focusNode;
   bool _isForecastLoaded = false;
   bool _isAirQualityLoaded = false;
+  bool _isLoadingLocation = false;
   GetSuggestionCityUseCase getSuggestionCityUseCase = GetSuggestionCityUseCase(locator());
+
+  late final HomeBloc _homeBloc;
+  final _suggestionUseCase = locator<GetSuggestionCityUseCase>();
+
+  String _currentCity = 'تهران';
+  double _currentLat = 35.6892;
+  double _currentLon = 51.3890;
 
   @override
   void initState() {
     super.initState();
     textEditingController = TextEditingController();
     focusNode = FocusNode();
+    _homeBloc = locator<HomeBloc>();
 
-    // پاک کردن متن هنگام بارگذاری اولیه صفحه
     textEditingController.clear();
 
     focusNode.addListener(() {
@@ -52,6 +62,8 @@ class _CustomAppBarState extends State<CustomAppBar> {
         });
       }
     });
+
+    _loadInitialData();
   }
 
   @override
@@ -61,8 +73,209 @@ class _CustomAppBarState extends State<CustomAppBar> {
     super.dispose();
   }
 
+  Future<void> _loadInitialData() async {
+    print('شروع بارگذاری اولیه داده‌ها...');
+    await _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
+    try {
+      print('چک کردن سرویس موقعیت‌یابی...');
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('سرویس موقعیت‌یابی غیرفعال است');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'لطفاً سرویس موقعیت‌یابی را فعال کنید',
+              style: TextStyle(
+                fontFamily: 'Vazir',
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            backgroundColor: const Color(0xFF2C3E50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            elevation: 8,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'تنظیمات',
+              textColor: Colors.blueAccent,
+              onPressed: () async {
+                await Geolocator.openAppSettings();
+              },
+            ),
+          ),
+        );
+        return _loadFallbackCity();
+      }
+
+      print('چک کردن مجوز موقعیت‌یابی...');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        print('درخواست مجوز موقعیت‌یابی...');
+        permission = await Geolocator.requestPermission();
+        if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
+          print('مجوز موقعیت‌یابی رد شد');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'لطفاً دسترسی به موقعیت مکانی را فعال کنید',
+                style: TextStyle(
+                  fontFamily: 'Vazir',
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+              backgroundColor: const Color(0xFF2C3E50),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              elevation: 8,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'تنظیمات',
+                textColor: Colors.blueAccent,
+                onPressed: () async {
+                  await Geolocator.openAppSettings();
+                },
+              ),
+            ),
+          );
+          return _loadFallbackCity();
+        }
+      }
+
+      print('در حال گرفتن موقعیت فعلی...');
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
+        throw TimeoutException('گرفتن موقعیت مکانی بیش از حد طول کشید');
+      });
+      print('موقعیت دریافت شد: lat=${position.latitude}, lon=${position.longitude}');
+
+      print('در حال دریافت نام شهر...');
+      final apiProvider = locator<ApiProvider>();
+      final cityItem = await apiProvider.getCityByCoordinates(position.latitude, position.longitude);
+      String cityName = cityItem?.title ?? 'موقعیت نامشخص';
+      print('نام شهر دریافت شد: $cityName');
+
+      setState(() {
+        _currentCity = cityName;
+        _currentLat = position.latitude;
+        _currentLon = position.longitude;
+      });
+
+      print('در حال بارگذاری داده‌های آب‌وهوا برای $cityName...');
+      final params = ForecastParams(position.latitude, position.longitude);
+      _homeBloc.add(LoadCwEvent(cityName, lat: position.latitude, lon: position.longitude));
+      if (!_isForecastLoaded) {
+        _homeBloc.add(LoadFwEvent(params));
+        _isForecastLoaded = true;
+      }
+      if (!_isAirQualityLoaded) {
+        _homeBloc.add(LoadAirQualityEvent(params));
+        _isAirQualityLoaded = true;
+      }
+    } catch (e, stackTrace) {
+      print('خطا در گرفتن موقعیت مکانی: $e');
+      print('StackTrace: $stackTrace');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'خطا در گرفتن موقعیت مکانی: $e',
+            style: const TextStyle(
+              fontFamily: 'Vazir',
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          backgroundColor: const Color(0xFF2C3E50),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          elevation: 8,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'تلاش دوباره',
+            textColor: Colors.blueAccent,
+            onPressed: () => _getCurrentLocation(),
+          ),
+        ),
+      );
+      await _loadFallbackCity();
+    } finally {
+      print('اتمام فرآیند لودینگ موقعیت مکانی');
+      setState(() {
+        _isLoadingLocation = false;
+      });
+    }
+  }
+
+  Future<void> _loadFallbackCity() async {
+    print('فال‌بک به شهر پیش‌فرض: تهران');
+    double defaultLat = 35.6892;
+    double defaultLon = 51.3890;
+    final params = ForecastParams(defaultLat, defaultLon);
+    try {
+      _homeBloc.add(LoadCwEvent("تهران"));
+      if (!_isForecastLoaded) {
+        _homeBloc.add(LoadFwEvent(params));
+        _isForecastLoaded = true;
+      }
+      if (!_isAirQualityLoaded) {
+        _homeBloc.add(LoadAirQualityEvent(params));
+        _isAirQualityLoaded = true;
+      }
+      setState(() {
+        _currentCity = 'تهران';
+        _currentLat = defaultLat;
+        _currentLon = defaultLon;
+      });
+      print('داده‌های پیش‌فرض برای تهران لود شد');
+    } catch (e) {
+      print('خطا در لود داده‌های پیش‌فرض: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'خطا در بارگذاری داده‌های پیش‌فرض: $e',
+            style: const TextStyle(
+              fontFamily: 'Vazir',
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          backgroundColor: const Color(0xFF2C3E50),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          elevation: 8,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'تلاش دوباره',
+            textColor: Colors.blueAccent,
+            onPressed: () => _getCurrentLocation(),
+          ),
+        ),
+      );
+    }
+  }
+
   void showCityDropdown(BuildContext context, String cityName) {
-    // بارگذاری شهرهای بوکمارک‌شده
     BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
 
     showGeneralDialog(
@@ -111,6 +324,9 @@ class _CustomAppBarState extends State<CustomAppBar> {
                       controller: textEditingController,
                       focusNode: focusNode,
                       suggestionsCallback: (String pattern) async {
+                        if (pattern.isEmpty) {
+                          return [];
+                        }
                         return await getSuggestionCityUseCase(pattern);
                       },
                       itemBuilder: (context, NeshanCityItem model) {
@@ -140,9 +356,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                           _isForecastLoaded = false;
                           _isAirQualityLoaded = false;
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('مختصات شهر پیدا نشد')),
-                          );
+                          print('مختصات شهر پیدا نشد');
                         }
 
                         Navigator.of(context).pop();
@@ -218,8 +432,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                                 final city = cities[index];
                                 return GestureDetector(
                                   onTap: () {
-                                    BlocProvider.of<HomeBloc>(context)
-                                        .add(LoadCwEvent(city.name));
+                                    BlocProvider.of<HomeBloc>(context).add(LoadCwEvent(city.name));
                                     Navigator.of(context).pop();
                                   },
                                   child: Padding(
@@ -231,15 +444,13 @@ class _CustomAppBarState extends State<CustomAppBar> {
                                           width: double.infinity,
                                           height: 60.0,
                                           decoration: BoxDecoration(
-                                            borderRadius:
-                                            const BorderRadius.all(Radius.circular(20)),
+                                            borderRadius: const BorderRadius.all(Radius.circular(20)),
                                             color: Colors.grey.withOpacity(0.1),
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.only(left: 20.0),
                                             child: Row(
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                               children: [
                                                 Text(
                                                   city.name,
@@ -257,7 +468,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
                                                         .add(GetAllCityEvent());
                                                   },
                                                   icon: const Icon(
-                                                    Icons.delete,
+                                                    Icons.close,
                                                     color: Colors.redAccent,
                                                   ),
                                                 ),
@@ -319,9 +530,9 @@ class _CustomAppBarState extends State<CustomAppBar> {
             children: [
               const Icon(Icons.wb_sunny, color: Colors.white, size: 15),
               const SizedBox(width: 5),
-              Text(
+              const Text(
                 'ECHO_WEATHER',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   color: Colors.white70,
                   fontWeight: FontWeight.bold,
@@ -352,41 +563,19 @@ class _CustomAppBarState extends State<CustomAppBar> {
                             meteoCurrentWeatherEntity.name ?? '',
                             style: const TextStyle(
                               fontSize: 27,
-                              color: Colors.white,
+                              color: Colors.white ,
                             ),
                           ),
                           const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
                         ],
                       ),
                     ),
-                    Positioned(
-                      right: 0,
-                      child: BlocBuilder<BookmarkBloc, BookmarkState>(
-                        builder: (context, bookmarkState) {
-                          bool isBookmarked = false;
-                          if (bookmarkState.getAllCityStatus is GetAllCityCompleted) {
-                            final cities = (bookmarkState.getAllCityStatus as GetAllCityCompleted).cities;
-                            isBookmarked = cities.any((city) => city.name == meteoCurrentWeatherEntity.name);
-                          }
-                          return IconButton(
-                            icon: Icon(
-                              isBookmarked ? Icons.push_pin : Icons.push_pin_outlined,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            onPressed: () {
-                              if (isBookmarked) {
-                                BlocProvider.of<BookmarkBloc>(context)
-                                    .add(DeleteCityEvent(meteoCurrentWeatherEntity.name!));
-                              } else {
-                                BlocProvider.of<BookmarkBloc>(context)
-                                    .add(SaveCwEvent(meteoCurrentWeatherEntity.name!));
-                              }
-                              BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
-                            },
-                          );
-                        },
-                      ),
+                    AnimatedBookmarkIcon(
+                      meteoCurrentWeatherEntity: meteoCurrentWeatherEntity,
+                    ),
+                    AnimatedLocationIcon(
+                      isLoading: _isLoadingLocation,
+                      onPressed: _isLoadingLocation ? null : _getCurrentLocation,
                     ),
                   ],
                 );
@@ -403,6 +592,186 @@ class _CustomAppBarState extends State<CustomAppBar> {
           const SizedBox(height: 10),
           const Divider(color: Colors.white24, thickness: 2),
         ],
+      ),
+    );
+  }
+}
+
+class AnimatedLocationIcon extends StatefulWidget {
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  const AnimatedLocationIcon({Key? key, required this.isLoading, required this.onPressed}) : super(key: key);
+
+  @override
+  _AnimatedLocationIconState createState() => _AnimatedLocationIconState();
+}
+
+class _AnimatedLocationIconState extends State<AnimatedLocationIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  bool _previousLoadingState = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isLoading) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(AnimatedLocationIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_previousLoadingState != widget.isLoading) {
+      if (widget.isLoading) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+        _controller.reset();
+      }
+      _previousLoadingState = widget.isLoading;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 40,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Opacity(
+              opacity: _fadeAnimation.value,
+              child: IconButton(
+                icon: widget.isLoading
+                    ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+                    : const Icon(Icons.my_location, color: Colors.white, size: 26),
+                onPressed: widget.onPressed,
+                tooltip: 'استفاده از موقعیت فعلی',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class AnimatedBookmarkIcon extends StatefulWidget {
+  final MeteoCurrentWeatherEntity meteoCurrentWeatherEntity;
+
+  const AnimatedBookmarkIcon({Key? key, required this.meteoCurrentWeatherEntity}) : super(key: key);
+
+  @override
+  _AnimatedBookmarkIconState createState() => _AnimatedBookmarkIconState();
+}
+
+class _AnimatedBookmarkIconState extends State<AnimatedBookmarkIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  bool _previousBookmarkState = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleBookmarkAnimation(bool isBookmarked) {
+    if (_previousBookmarkState != isBookmarked) {
+      _controller.forward().then((_) => _controller.reverse());
+      _previousBookmarkState = isBookmarked;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 0,
+      child: BlocBuilder<BookmarkBloc, BookmarkState>(
+        builder: (context, bookmarkState) {
+          bool isBookmarked = false;
+          if (bookmarkState.getAllCityStatus is GetAllCityCompleted) {
+            final cities = (bookmarkState.getAllCityStatus as GetAllCityCompleted).cities;
+            isBookmarked = cities.any((city) => city.name == widget.meteoCurrentWeatherEntity.name);
+          }
+
+          _toggleBookmarkAnimation(isBookmarked);
+
+          return AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: IconButton(
+                    icon: Icon(
+                      isBookmarked ? CupertinoIcons.bookmark_solid : CupertinoIcons.bookmark,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                    onPressed: () {
+                      if (isBookmarked) {
+                        BlocProvider.of<BookmarkBloc>(context)
+                            .add(DeleteCityEvent(widget.meteoCurrentWeatherEntity.name!));
+                      } else {
+                        BlocProvider.of<BookmarkBloc>(context)
+                            .add(SaveCwEvent(widget.meteoCurrentWeatherEntity.name!));
+                      }
+                      BlocProvider.of<BookmarkBloc>(context).add(GetAllCityEvent());
+                    },
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

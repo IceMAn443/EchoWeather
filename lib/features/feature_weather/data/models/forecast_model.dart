@@ -5,32 +5,36 @@ class ForecastModel extends ForecastEntity {
     required List<ForecastDayEntity> days,
     required List<ForecastHourEntity> hours,
   }) : super(days: days, hours: hours);
-
   factory ForecastModel.fromJson(Map<String, dynamic> json) {
-    // --- نگاشت روزانه (همانند قبل) ---
+    // --- نگاشت روزانه ---
     final daily = json['daily'];
     final timesD = daily['time'] as List;
-    final tempsD = daily['temperature_2m_max'] as List;
+    final tempsMaxD = daily['temperature_2m_max'] as List;
+    final tempsMinD = daily['temperature_2m_min'] as List;
     final codesD = daily['weathercode'] as List;
+    final precipProbsD = daily['precipitation_probability_mean'] as List?; // کلید مربوط به احتمال بارندگی
 
     final days = List<ForecastDayEntity>.generate(timesD.length, (i) {
       return ForecastDayEntity(
         date: timesD[i] as String,
-        maxTempC: (tempsD[i] as num).toDouble(),
+        maxTempC: (tempsMaxD[i] as num).toDouble(),
+        minTempC: (tempsMinD[i] as num).toDouble(),
         conditionIcon: _mapWeatherCodeToIcon(codesD[i] as int),
+        chanceOfRain: precipProbsD != null && i < precipProbsD.length
+            ? (precipProbsD[i] as num).toInt()
+            : null, // مقدار null اگر داده موجود نباشد
       );
     });
 
     // --- نگاشت ساعتی از ساعت کنونی ---
     final hourly = json['hourly'];
-
     final timesH = hourly['time'] as List;
     final tempsH = hourly['temperature_2m'] as List;
     final codesH = hourly['weathercode'] as List;
 
     final dateTimes = timesH.map((t) => DateTime.parse(t as String)).toList();
     final now = DateTime.now();
-    final nowRounded = DateTime(now.year, now.month, now.day, now.hour); // این مهمه
+    final nowRounded = DateTime(now.year, now.month, now.day, now.hour);
 
     int startIndex = dateTimes.indexWhere((dt) => dt.isAfter(nowRounded) || dt.isAtSameMomentAs(nowRounded));
     if (startIndex < 0) startIndex = 0;
@@ -46,9 +50,9 @@ class ForecastModel extends ForecastEntity {
       );
     });
 
-
     return ForecastModel(days: days, hours: hours);
   }
+
 }
 
 String _mapWeatherCodeToIcon(int code) {

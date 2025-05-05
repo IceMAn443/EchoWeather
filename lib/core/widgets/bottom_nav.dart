@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class BottomNav extends StatefulWidget {
@@ -12,18 +13,27 @@ class BottomNav extends StatefulWidget {
 class _BottomNavState extends State<BottomNav> {
   int _currentIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    // گوش دادن به تغییرات PageController برای به‌روزرسانی حالت آیکون‌ها
-    widget.controller.addListener(() {
+  void _onPageChanged() {
+    if (widget.controller.hasClients) {
       final newIndex = widget.controller.page?.round() ?? 0;
       if (newIndex != _currentIndex) {
         setState(() {
           _currentIndex = newIndex;
         });
       }
-    });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onPageChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onPageChanged);
+    super.dispose();
   }
 
   @override
@@ -34,9 +44,9 @@ class _BottomNavState extends State<BottomNav> {
       color: Colors.transparent,
       elevation: 0,
       child: Container(
-        height: 70, // افزایش ارتفاع برای جلوگیری از سرریز عمودی
+        height: MediaQuery.of(context).size.height * 0.09,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.3), // پس‌زمینه با افکت بلور
+          color: Colors.black.withOpacity(0.3),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -69,9 +79,9 @@ class _BottomNavState extends State<BottomNav> {
             ),
             _buildNavItem(
               index: 3,
-              activeIcon: Icons.radar,
-              inactiveIcon: Icons.radar_outlined, // اگر آیکون غیرفعال وجود ندارد، از همان آیکون استفاده می‌شود
-              label: 'Map',
+              activeIcon: CupertinoIcons.news_solid,
+              inactiveIcon: CupertinoIcons.news,
+              label: 'News',
             ),
           ],
         ),
@@ -95,35 +105,33 @@ class _BottomNavState extends State<BottomNav> {
             curve: Curves.easeInOut,
           );
         },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive ? activeIcon : (inactiveIcon ?? activeIcon),
-              color: isActive ? Colors.white : Colors.grey[400],
-              size: 28, // کاهش اندازه آیکون برای بهینه‌سازی فضا
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
+        child: AnimatedScale(
+          scale: isActive ? 1.1 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isActive ? activeIcon : (inactiveIcon ?? activeIcon),
                 color: isActive ? Colors.white : Colors.grey[400],
-                fontSize: 10, // کاهش اندازه فونت برای جلوگیری از سرریز
-                overflow: TextOverflow.ellipsis,
+                size: 28,
               ),
-              maxLines: 1,
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? Colors.white : Colors.grey[400],
+                  fontSize: 10,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                maxLines: 1,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    // حذف listener برای جلوگیری از memory leak
-    widget.controller.removeListener(() {});
-    super.dispose();
   }
 }

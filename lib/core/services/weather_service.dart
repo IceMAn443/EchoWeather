@@ -15,4 +15,6 @@ class WeatherService {
       throw Exception('Failed to get coordinates: $e');
     }
   }
+
+  fetchWeatherNews(String cityName) {}
 }

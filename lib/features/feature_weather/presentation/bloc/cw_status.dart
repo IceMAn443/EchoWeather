@@ -1,4 +1,4 @@
-import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_current_weather_entity.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 

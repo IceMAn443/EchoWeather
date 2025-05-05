@@ -5,18 +5,41 @@ import 'package:echo_weather/features/feature_weather/presentation/bloc/home_eve
 import 'package:echo_weather/features/feature_weather/presentation/screens/daily_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/home_screen.dart';
 import 'package:echo_weather/features/feature_weather/presentation/screens/hourly_screen.dart';
-import 'package:echo_weather/features/feature_weather/presentation/screens/map_screen.dart';
+import 'package:echo_weather/features/feature_weather/presentation/screens/news_screen.dart';
 import 'package:echo_weather/locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../core/widgets/bottom_nav.dart';
 
-class MainWrapper extends StatelessWidget {
-  MainWrapper({Key? key}) : super(key: key);
+class MainWrapper extends StatefulWidget {
+  const MainWrapper({Key? key}) : super(key: key);
 
+  @override
+  State<MainWrapper> createState() => _MainWrapperState();
+}
+
+class _MainWrapperState extends State<MainWrapper> {
   final PageController _myPage = PageController(initialPage: 0);
-  final String cityName = "Amol";
+  final String cityName = "تهران";
+  int _currentPage = 0; // برای ردیابی صفحه‌ی فعال
+
+  @override
+  void initState() {
+    super.initState();
+    // گوش دادن به تغییرات صفحه
+    _myPage.addListener(() {
+      setState(() {
+        _currentPage = _myPage.page?.round() ?? 0;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _myPage.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +47,7 @@ class MainWrapper extends StatelessWidget {
       const HomeScreen(),
       const HourlyScreen(),
       const DailyScreen(),
-      const MapScreen(),
+      const NewsScreen(),
     ];
 
     var height = MediaQuery.of(context).size.height;
@@ -51,18 +74,20 @@ class MainWrapper extends StatelessWidget {
                 controller: _myPage,
                 children: pageViewWidget,
               ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: CustomAppBar(
-                    onCityTap: (context, cityName) {
-                      // این تابع حالا نیازی نیست، اما برای سازگاری نگه داشته شده
-                    },
+              // فقط برای صفحاتی غیر از NewsScreen (اندیس 3) اپ‌بار را نمایش بده
+              if (_currentPage != 3)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    child: CustomAppBar(
+                      onCityTap: (context, cityName) {
+                        // این تابع برای سازگاری نگه داشته شده
+                      },
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

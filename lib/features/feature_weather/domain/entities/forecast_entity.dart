@@ -3,19 +3,23 @@ import 'package:equatable/equatable.dart';
 
 class ForecastDayEntity extends Equatable {
   final String date;           // YYYY-MM-DD
-  final double maxTempC;       // دمای ماکزیمم
+  final double maxTempC;
+  final double minTempC;
+  final int? chanceOfRain;
   final String conditionIcon;  // مسیر آیکون (assets)
 
   const ForecastDayEntity({
     required this.date,
     required this.maxTempC,
+    required this.minTempC,
+    this.chanceOfRain,
     required this.conditionIcon,
+
   });
 
   @override
-  List<Object?> get props => [date, maxTempC, conditionIcon];
+  List<Object?> get props => [date, maxTempC,minTempC,chanceOfRain, conditionIcon,];
 
-  get chanceOfRain => null;
 }
 
 class ForecastHourEntity extends Equatable {

@@ -1,9 +1,8 @@
 import 'dart:ui';
 import 'package:echo_weather/core/params/forcast_params.dart';
-import 'package:echo_weather/core/utils/date_converter.dart';
 import 'package:echo_weather/core/widgets/app_background.dart';
 import 'package:echo_weather/core/widgets/dot_loading.dart';
-import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:echo_weather/features/feature_weather/presentation/bloc/aq_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/cw_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/fw_status.dart';
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
@@ -20,7 +19,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   bool _isForecastLoaded = false;
   bool _isAirQualityLoaded = false;
 
@@ -31,10 +31,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late final HomeBloc _homeBloc;
 
   @override
+  // TODO: implement wantKeepAlive
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     // تنظیم انیمیشن‌ها
-    _homeBloc = locator<HomeBloc>()..add(LoadCwEvent("Amol"));
+    _homeBloc = locator<HomeBloc>()..add(LoadCwEvent("امل"));
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -79,22 +83,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final width = MediaQuery.of(context).size.width;
 
     return MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: _homeBloc),
-      ],
+      providers: [BlocProvider.value(value: _homeBloc)],
       child: SafeArea(
         child: Column(
           children: [
             SizedBox(height: height * 0.15), // فاصله با اپ‌بار
             Expanded(
               child: BlocBuilder<HomeBloc, HomeState>(
-                buildWhen: (previous, current) => previous.cwStatus != current.cwStatus,
+                buildWhen:
+                    (previous, current) =>
+                        previous.cwStatus != current.cwStatus,
                 builder: (context, state) {
                   if (state.cwStatus is CwLoading) {
                     return const Center(child: DotLoadingWidget());
                   }
                   if (state.cwStatus is CwCompleted) {
-                    final city = (state.cwStatus as CwCompleted).meteoCurrentWeatherEntity;
+                    final city =
+                        (state.cwStatus as CwCompleted)
+                            .meteoCurrentWeatherEntity;
                     if (!_isForecastLoaded) {
                       final lat = city.coord?.lat;
                       final lon = city.coord?.lon;
@@ -110,12 +116,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       }
                     }
 
-                    // double minTemp = 0.0;
+                    // لاگ برای بررسی مقادیر humidity و pressure
+                    print('Humidity: ${city.main?.humidity}');
+                    print('Pressure: ${city.main?.pressure}');
+
                     double maxTemp = 0.0;
                     if (state.fwStatus is FwCompleted) {
-                      final forecast = (state.fwStatus as FwCompleted).forecastEntity;
+                      final forecast =
+                          (state.fwStatus as FwCompleted).forecastEntity;
                       if (forecast.days.isNotEmpty) {
-                        // minTemp = forecast.days[0].minTempC;
                         maxTemp = forecast.days[0].maxTempC;
                       }
                     }
@@ -132,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             ),
                           ),
                         ),
+
                         ///Body
                         Column(
                           children: [
@@ -141,20 +151,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               child: SlideTransition(
                                 position: _slideAnimation,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 30,
+                                    vertical: 30,
+                                  ),
                                   child: AnimatedBuilder(
                                     animation: _glowAnimation,
                                     builder: (context, child) {
                                       return Container(
-                                        width: width * 0.55, // اندازه دایره
-                                        height: width * 0.55,
+                                        width: width * 0.65,
+                                        height: width * 0.65,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: Colors.white.withOpacity(0.05),
-                                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                                          color: Colors.white.withOpacity(0.01),
+                                          border: Border.all(color: Colors.grey.withOpacity(0.09)),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.white.withOpacity(0.3),
+                                              color: Colors.white.withOpacity(0.2),
                                               blurRadius: _glowAnimation.value,
                                               spreadRadius: 2,
                                             ),
@@ -164,12 +177,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                           child: Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
+                                              // آیکون آب‌وهوا
                                               AppBackground.setIconForMain(
-                                               city.weather?.isNotEmpty == true ? city.weather![0].description ?? '' : ''
+                                                city.weather != null && city.weather!.isNotEmpty
+                                                    ? city.weather![0].description ?? ''
+                                                    : '',
                                               ),
                                               const SizedBox(height: 8),
+                                              // توضیحات آب‌وهوا
                                               Text(
-                                                city.weather?[0].description ?? 'Unknown',
+                                                city.weather != null && city.weather!.isNotEmpty
+                                                    ? city.weather![0].description ?? 'نامشخص'
+                                                    : 'نامشخص',
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   color: Colors.white70,
@@ -177,6 +196,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                                 ),
                                               ),
                                               const SizedBox(height: 12),
+                                              // دما
                                               Text(
                                                 "${city.main?.temp?.round() ?? 0}\u00B0",
                                                 style: TextStyle(
@@ -194,9 +214,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 ),
                               ),
                             ),
+
                             ///Divider
                             Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 40),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                              ),
                               height: 2,
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.3),
@@ -209,10 +232,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 ],
                               ),
                             ),
+
                             ///Cards
                             Expanded(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 15,
+                                ),
                                 child: FadeTransition(
                                   opacity: _fadeAnimation,
                                   child: SlideTransition(
@@ -220,17 +247,68 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     child: SingleChildScrollView(
                                       child: Column(
                                         children: [
-                                          _buildGlassCard("Wind Speed", "${city.wind?.speed ?? 0} m/s", Icons.air),
+                                          _buildGlassCard(
+                                            "Wind Speed",
+                                            "${city.wind?.speed ?? 0} m/s",
+                                            Icons.air,
+                                          ),
                                           const SizedBox(height: 10),
-                                          _buildGlassCard("Sunrise", sunrise, Icons.wb_sunny),
+                                          _buildGlassCard(
+                                            "Sunrise",
+                                            sunrise,
+                                            Icons.wb_sunny,
+                                          ),
                                           const SizedBox(height: 10),
-                                          _buildGlassCard("Sunset", sunset, Icons.nights_stay),
+                                          _buildGlassCard(
+                                            "Sunset",
+                                            sunset,
+                                            Icons.nights_stay,
+                                          ),
                                           const SizedBox(height: 10),
-                                          _buildGlassCard("Humidity", "${city.main?.humidity ?? 0}%", Icons.opacity),
+                                          _buildGlassCard(
+                                            "Humidity",
+                                            city.main?.humidity != null
+                                                ? "${city.main!.humidity}%"
+                                                : "N/A",
+                                            Icons.opacity,
+                                          ),
                                           const SizedBox(height: 10),
-                                          _buildGlassCard("Pressure", "${city.main?.pressure ?? 0} hPa", Icons.compress),
+                                          _buildGlassCard(
+                                            "Pressure",
+                                            city.main?.pressure != null
+                                                ? "${city.main!.pressure} hPa"
+                                                : "N/A",
+                                            Icons.compress,
+                                          ),
                                           const SizedBox(height: 10),
-                                          // _buildGlassCard("Feels Like", "${meteoCurrentWeatherEntity.main?.feelsLike?.round() ?? 0}\u00B0", Icons.thermostat),
+                                          // کارت کیفیت هوا
+                                          BlocBuilder<HomeBloc, HomeState>(
+                                            buildWhen: (previous, current) =>
+                                            previous.aqStatus != current.aqStatus,
+                                            builder: (context, state) {
+                                              if (state.aqStatus is AirQualityLoading) {
+                                                return _buildGlassCard(
+                                                  "Air Quality",
+                                                  "ُLoading",
+                                                  Icons.cloud,
+                                                );
+                                              } else if (state.aqStatus is AirQualityCompleted) {
+                                                final airQuality = state.aqStatus as AirQualityCompleted;
+                                                return _buildGlassCard(
+                                                  "Air Quality",
+                                                  "${airQuality.aqi} - ${airQuality.category}",
+                                                  Icons.cloud,
+                                                );
+                                              } else {
+                                                return _buildGlassCard(
+                                                  "Air Quality",
+                                                  "Not Found",
+                                                  Icons.cloud,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(height: 10),
                                         ],
                                       ),
                                     ),
@@ -258,6 +336,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
   }
+  String _getAirQualityText(int? aqi) {
+    if (aqi == null) return "N/A";
+    switch (aqi) {
+      case 1:
+        return "Good";
+      case 2:
+        return "Fair";
+      case 3:
+        return "Moderate";
+      case 4:
+        return "Poor";
+      case 5:
+        return "Very Poor";
+      default:
+        return "Unknown";
+    }
+  }
 
   // تابع ساخت کارت‌های شیشه‌ای
   Widget _buildGlassCard(String title, String value, IconData icon) {
@@ -282,11 +377,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Row(
             children: [
-              AnimatedIcon(
-                icon: icon,
-                color: Colors.white,
-                size: 24,
-              ),
+              AnimatedIcon(icon: icon, color: Colors.white, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -295,7 +386,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -315,23 +409,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
   }
-
-  // // تابع برای انتخاب آیکون آب‌وهوا
-  // IconData _getWeatherIcon(String weatherMain) {
-  //   switch (weatherMain.contains(des)) {
-  //     case 'clear':
-  //       return Icons.wb_sunny;
-  //     case 'clouds':
-  //       return Icons.cloud;
-  //     case 'rain':
-  //       return Icons.umbrella;
-  //     case 'snow':
-  //       return Icons.ac_unit;
-  //     default:
-  //       return Icons.wb_cloudy;
-  //   }
-  // }
 }
+
+
 
 // ویجت برای آیکون متحرک
 class AnimatedIcon extends StatefulWidget {
@@ -350,7 +430,8 @@ class AnimatedIcon extends StatefulWidget {
   State<AnimatedIcon> createState() => _AnimatedIconState();
 }
 
-class _AnimatedIconState extends State<AnimatedIcon> with SingleTickerProviderStateMixin {
+class _AnimatedIconState extends State<AnimatedIcon>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -361,9 +442,10 @@ class _AnimatedIconState extends State<AnimatedIcon> with SingleTickerProviderSt
       duration: const Duration(seconds: 1),
       vsync: this,
     )..repeat(reverse: true);
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -376,11 +458,7 @@ class _AnimatedIconState extends State<AnimatedIcon> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return ScaleTransition(
       scale: _scaleAnimation,
-      child: Icon(
-        widget.icon,
-        color: widget.color,
-        size: widget.size,
-      ),
+      child: Icon(widget.icon, color: widget.color, size: widget.size),
     );
   }
 }

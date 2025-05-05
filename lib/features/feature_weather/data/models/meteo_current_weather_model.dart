@@ -1,6 +1,6 @@
 
 
-import 'package:echo_weather/features/feature_weather/domain/entities/meteo_murrent_weather_entity.dart';
+import 'package:echo_weather/features/feature_weather/domain/entities/meteo_current_weather_entity.dart';
 
 class MeteoCurrentWeatherModel extends MeteoCurrentWeatherEntity {
   MeteoCurrentWeatherModel({
@@ -37,30 +37,30 @@ class MeteoCurrentWeatherModel extends MeteoCurrentWeatherEntity {
   );
 
   factory MeteoCurrentWeatherModel.fromJson(Map<String, dynamic> json, {String? name, Coord? coord}) {
-    final currentWeather = json['current_weather'] ?? {};
+    print('JSON دریافتی: $json');
+    final current = json['current'] ?? {};
     final daily = json['daily'] ?? {};
-    final weatherCode = currentWeather['weathercode'] as int? ?? 0;
+    final weatherCode = current['weathercode'] as int?;
 
-    // تبدیل timezone از رشته (مثل "Asia/Tehran") به عدد (offset ثانیه‌ای)
     final timezoneStr = json['timezone'] as String? ?? 'UTC';
     final timezoneOffset = _getTimezoneOffset(timezoneStr);
 
     return MeteoCurrentWeatherModel(
-      name: name ?? json['city_name'] as String?, // استفاده از name ورودی یا مقدار پیش‌فرض
+      name: name ?? json['city_name'] as String?,
       coord: coord ?? Coord(
-        lat: json['latitude'] as double?,
-        lon: json['longitude'] as double?,
+        lat: json['latitude'] is num ? json['latitude'].toDouble() : null,
+        lon: json['longitude'] is num ? json['longitude'].toDouble() : null,
       ),
-      temperature: currentWeather['temperature'] as double?,
-      humidity: json['current']?['relativehumidity_2m'] as int?,
-      pressure: json['current']?['pressure_msl'] as double?,
-      windSpeed: currentWeather['windspeed'] as double?,
-      windDirection: currentWeather['winddirection'] as int?,
+      temperature: current['temperature_2m'] as double?,
+      humidity: current['relativehumidity_2m'] as int?,
+      pressure: current['pressure_msl'] as double?,
+      windSpeed: current['windspeed_10m'] as double?,
+      windDirection: current['winddirection_10m'] as int?,
       weatherCode: weatherCode,
-      description: _mapWeatherCodeToDescription(weatherCode, 'fa'),
+      description: weatherCode != null ? _mapWeatherCodeToDescription(weatherCode, 'fa') : 'نامشخص',
       timezone: timezoneOffset,
-      sunrise: daily['sunrise']?[0] as String?,
-      sunset: daily['sunset']?[0] as String?,
+      sunrise: daily['sunrise'] is List && daily['sunrise'].isNotEmpty ? daily['sunrise'][0] as String? : null,
+      sunset: daily['sunset'] is List && daily['sunset'].isNotEmpty ? daily['sunset'][0] as String? : null,
     );
   }
 

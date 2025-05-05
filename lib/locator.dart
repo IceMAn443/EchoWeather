@@ -20,6 +20,8 @@ import 'package:echo_weather/features/feature_weather/domain/usecases/get_foreca
 import 'package:echo_weather/features/feature_weather/presentation/bloc/home_bloc.dart';
 import 'package:get_it/get_it.dart';
 
+import 'features/feature_weather/domain/usecases/get_suggestion_city_usecase.dart';
+
 GetIt locator = GetIt.instance;
 
 setup() async {
@@ -46,8 +48,11 @@ setup() async {
   locator.registerSingleton<GetAllCityUseCase>(GetAllCityUseCase(locator()));
   locator.registerSingleton<DeleteCityUseCase>(DeleteCityUseCase(locator()));
   locator.registerLazySingleton<GetAirQualityUseCase>(() => GetAirQualityUseCase(locator()));
+  locator.registerSingleton<GetSuggestionCityUseCase>(
+    GetSuggestionCityUseCase(locator()),
+  );
 
 
-  locator.registerSingleton<HomeBloc>(HomeBloc(locator(),locator(),locator()));
+  locator.registerSingleton<HomeBloc>(HomeBloc(locator(),locator(),locator(),));
   locator.registerSingleton<BookmarkBloc>(BookmarkBloc(locator(),locator(),locator(),locator()));
 }
